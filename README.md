@@ -157,24 +157,21 @@ The dashboard displays the agent's cumulative reward curve from training, provid
 
 ## Results
 
-> This section will be updated upon project completion.
-
 | Metric | RL Agent (Steward) | Round-Robin |
 |---|---|---|
-| Processes Completed (200 ticks) | — | — |
-| Average Wait Time | — | — |
-| Final CPU Usage % | — | — |
-| Final RAM Usage % | — | — |
-| Crash Incidents | — | — |
+| Processes Completed (200 ticks) | 107 | 45 |
+| Average Wait Time | N/A | 88.93 |
+| Final CPU Usage % | 43.76 | 78.48 |
+| Final RAM Usage % | 85.66 | 88.54 |
+| Crash Incidents | 0 | 0 |
 
 **Reward Curve**
 
-> `assets/reward_curve.png` — to be added after training.
+![Steward PPO Training Reward Curve](assets/reward_curve.png)
 
 **Stress Test Observations**
 
-> Qualitative and quantitative observations from the stress test scenario to be documented here.
-
+> To be documented after backend stress test integration in Day 3.
 ---
 
 ## Conclusions
