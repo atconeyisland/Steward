@@ -5,7 +5,7 @@
 
 ## Overview
 
-Steward is an AI-powered operating system resource manager that employs a Reinforcement Learning agent to make intelligent, adaptive scheduling decisions across CPU and RAM resources. Unlike conventional schedulers that operate on fixed heuristics, Steward's agent learns an optimal scheduling policy through direct interaction with a simulated OS environment — dynamically responding to system load, minimizing process wait time, and maximizing throughput.
+Steward is an AI-powered operating system resource manager that uses Reinforcement Learning to make intelligent, adaptive scheduling decisions across CPU and RAM resources. Unlike conventional schedulers that operate on fixed heuristics, Steward's agent learns an optimal scheduling policy through direct interaction with a simulated OS environment — dynamically responding to system load, minimizing process wait time, and maximizing throughput.
 
 Developed as part of an Operating Systems course project, Steward demonstrates the practical application of deep RL in systems-level decision making, and provides a live dashboard for real-time visualization of agent behaviour under varying load conditions.
 
@@ -35,13 +35,13 @@ Steward is composed of four layers:
 A custom Gymnasium environment that simulates an OS resource manager. Processes arrive stochastically with random CPU and RAM demands. At each timestep, the agent observes the current system state and selects one of three actions: schedule, defer, or kill. The environment enforces resource constraints and returns a shaped reward signal to guide learning.
 
 **2. RL Agent (`train.py`)**
-A Proximal Policy Optimization (PPO) agent trained via Stable-Baselines3. The agent learns a policy mapping observations to actions over 100,000 timesteps. Training progress is logged episode-by-episode and visualized as a reward curve.
+A Proximal Policy Optimization (PPO) agent trained via Stable-Baselines3. The agent learns a policy mapping observations to actions over 300,000 timesteps. The observation space includes current CPU/RAM usage, queue length, and the top 3 highest-priority processes — enabling the agent to make informed scheduling decisions under partial observability. Training progress is logged episode-by-episode and visualized as a reward curve.
 
 **3. Backend (`backend/`)**
 A Flask server with Socket.IO that runs the simulation loop in real time. The trained agent is loaded and queried at each tick. Resource state, scheduling decisions, and reward signals are emitted as events to connected frontend clients. Exposes REST endpoints for stress testing and simulation reset.
 
 **4. Frontend (`frontend/`)**
-A browser-based dashboard built with HTML, CSS, JavaScript, and Chart.js. Subscribes to Socket.IO events and renders live CPU/RAM usage charts, a scrolling decision log, and a side-by-side comparison panel between the RL agent and a Round-Robin baseline scheduler.
+A browser-based dashboard built with HTML, CSS, JavaScript, and Chart.js. Subscribes to Socket.IO events and renders live CPU/RAM usage charts, a scrolling decision log, and a side-by-side comparison panel between the RL agent and all baseline schedulers.
 
 ---
 
@@ -59,6 +59,31 @@ A browser-based dashboard built with HTML, CSS, JavaScript, and Chart.js. Subscr
 
 ## Project Structure
 
+steward/
+├── env/
+│   ├── init.py
+│   ├── resource_env.py
+│   └── process_queue.py
+├── baseline/
+│   ├── init.py
+│   ├── round_robin.py
+│   ├── fcfs.py
+│   ├── priority_scheduler.py
+│   └── sjf.py
+├── backend/
+│   ├── init.py
+│   └── server.py
+├── frontend/
+│   └── index.html
+├── models/
+│   └── steward_ppo.zip
+├── assets/
+│   └── reward_curve.png
+├── train.py
+├── benchmark.py
+├── main.py
+├── requirements.txt
+└── README.md
 
 ---
 
@@ -98,57 +123,56 @@ pip install -r requirements.txt
 
 ### Verify Environment
 
-Run the environment check to confirm the Gymnasium environment is set up correctly:
-
 ```bash
 python main.py
 ```
 
 Expected output:
+
 Environment check passed.
-Initial obs: [0. 0. 5. 1.]
+Initial obs: [0. 0. 5. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
 
 ---
 
 ## Training the Agent
-
-Train the PPO agent for 100,000 timesteps:
 
 ```bash
 python train.py
 ```
 
 This will:
-- Train the agent and log per-episode rewards
+- Train the PPO agent for 300,000 timesteps
+- Log per-episode rewards throughout training
 - Save the trained model to `models/steward_ppo.zip`
 - Generate and save the reward curve to `assets/reward_curve.png`
 
-Training takes approximately 5–10 minutes on CPU.
+Training takes approximately 10–15 minutes on CPU.
 
 ---
 
 ## Benchmarking
 
-Compare the trained RL agent against the Round-Robin baseline:
-
 ```bash
 python benchmark.py
 ```
 
-This runs both schedulers over 200 ticks under identical conditions and prints a comparison table of completed processes, final CPU/RAM usage, and average wait time.
+Runs Steward and all four baseline schedulers over 200 ticks under identical conditions and prints a full comparison table.
 
 ---
 
 ## Features
 
 **Adaptive Scheduling**
-The PPO agent learns to balance CPU and RAM consumption dynamically, deferring or killing low-priority processes when resources are constrained rather than following a fixed rule.
+The PPO agent observes the top 3 highest-priority processes in the queue at each tick, learning to balance CPU and RAM consumption without any hardcoded rules.
+
+**Multi-Baseline Benchmarking**
+Steward is benchmarked against four traditional schedulers — Round-Robin, FCFS, Priority Scheduling, and Shortest Job First — providing a comprehensive performance comparison.
 
 **Stress Test Mode**
-A dedicated API endpoint (`/api/stress-test`) injects a burst of 20 processes simultaneously, allowing real-time observation of how the RL agent adapts under sudden load spikes compared to Round-Robin.
+A dedicated API endpoint (`/api/stress-test`) injects a burst of 20 processes simultaneously, allowing real-time observation of how the RL agent adapts under sudden load spikes.
 
 **Live Dashboard**
-The frontend dashboard streams real-time CPU and RAM usage charts, a live decision log showing per-process scheduling actions, and a side-by-side throughput comparison panel between the RL agent and the baseline scheduler.
+The frontend dashboard streams real-time CPU and RAM usage charts, a live decision log showing per-process scheduling actions, and a side-by-side throughput comparison panel across all schedulers.
 
 **Reward Replay Panel**
 The dashboard displays the agent's cumulative reward curve from training, providing visual evidence of the learning process over time.
@@ -157,13 +181,16 @@ The dashboard displays the agent's cumulative reward curve from training, provid
 
 ## Results
 
-| Metric | RL Agent (Steward) | Round-Robin |
-|---|---|---|
-| Processes Completed (200 ticks) | 107 | 45 |
-| Average Wait Time | N/A | 88.93 |
-| Final CPU Usage % | 43.76 | 78.48 |
-| Final RAM Usage % | 85.66 | 88.54 |
-| Crash Incidents | 0 | 0 |
+| Metric | RL Agent (Steward) | Round-Robin | FCFS | Priority | SJF |
+|---|---|---|---|---|---|
+| Processes Completed (200 ticks) | 106 | 46 | 105 | 104 | 113 |
+| Avg Wait Time | N/A | 93.2 | 98.75 | 93.85 | 95.37 |
+| Final CPU Usage % | 0 | 81.32 | 73.58 | 2.46 | 54.81 |
+| Final RAM Usage % | 88.42 | 87.32 | 67.38 | 81.5 | 80.76 |
+| Crash Incidents | 0 | 0 | 0 | 0 | 0 |
+
+**Key Takeaway**
+Steward outperforms Round-Robin by 2.3x and beats FCFS and Priority Scheduling without any hardcoded process knowledge. It operates under partial observability — observing only the top 3 processes at any tick — yet learns a competitive scheduling policy through experience alone. SJF edges ahead by sorting all processes by CPU demand globally, an assumption that does not hold in real OS environments where burst time is not known in advance.
 
 **Reward Curve**
 
@@ -172,16 +199,17 @@ The dashboard displays the agent's cumulative reward curve from training, provid
 **Stress Test Observations**
 
 > To be documented after backend stress test integration in Day 3.
+
 ---
 
 ## Conclusions
 
-> This section will be completed after final evaluation and benchmarking.
+> To be completed after final evaluation.
 
 Areas to be addressed:
-- Summary of agent performance relative to the Round-Robin baseline
+- Summary of agent performance relative to all baselines
 - Analysis of reward function design and its effect on learned behaviour
-- Limitations of the current simulation (single-node, discrete action space)
+- Limitations of the current simulation (single-node, discrete action space, simulated resource freeing)
 - Potential extensions: multi-resource scheduling, continuous action spaces, real OS integration via `/proc` filesystem
 
 ---
@@ -190,8 +218,8 @@ Areas to be addressed:
 
 | Name | Role |
 |---|---|
-| Anvi Trivedi | RL & AI Core |
-| Zakiur Rahman | Backend & Integration |
-| Prachi Bhowal | Frontend & Documentation |
+| Anvi | RL & AI Core |
+| Zakiur | Backend & Integration |
+| Prachi | Frontend & Documentation |
 
 ---
