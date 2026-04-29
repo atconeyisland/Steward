@@ -53,33 +53,29 @@ class ResourceEnv(gym.Env):
                     self.ram_used += process["ram"]
                     self.process_queue.pop()
                     self.completed += 1
-                    reward = 1.0
+                    reward = 3.0
                 else:
-                    # tried to schedule but not enough resources — penalise
-                    reward = -1.0
+                    reward = -0.5
 
             elif action == 1:  # defer
                 self.process_queue.defer()
-                reward = -0.5 * (len(self.process_queue) / self.max_queue)
+                reward = -0.3 * (len(self.process_queue) / self.max_queue)
 
             elif action == 2:  # kill
                 self.process_queue.pop()
-                reward = -2.0
+                reward = -1.0
 
         else:
             reward = 0.0
 
-        # new process arrives every tick with 60% probability
         if np.random.rand() < 0.6:
             self.process_queue.add_random()
 
-        # simulate resources freeing up slightly each tick
-        self.cpu_used = max(0, self.cpu_used - np.random.uniform(2, 6))
-        self.ram_used = max(0, self.ram_used - np.random.uniform(1, 4))
+        self.cpu_used = max(0, self.cpu_used - np.random.uniform(8, 15))
+        self.ram_used = max(0, self.ram_used - np.random.uniform(6, 12))
 
-        # crash condition
         if self.cpu_used > self.max_cpu or self.ram_used > self.max_ram:
-            reward = -5.0
+            reward = -10.0
             terminated = True
 
         self.tick += 1

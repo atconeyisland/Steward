@@ -5,7 +5,7 @@ import numpy as np
 
 def benchmark_rl(ticks=200):
     env = ResourceEnv()
-    model = PPO.load("models/arbiter_ppo")
+    model = PPO.load("models/steward_ppo")
     obs, _ = env.reset()
     wait_times = []
     completed = 0
