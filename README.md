@@ -59,28 +59,6 @@ A browser-based dashboard built with HTML, CSS, JavaScript, and Chart.js. Subscr
 
 ## Project Structure
 
-steward/
-├── env/
-│   ├── init.py
-│   ├── resource_env.py       # Custom Gymnasium environment
-│   └── process_queue.py      # Process generator and queue manager
-├── baseline/
-│   ├── init.py
-│   └── round_robin.py        # Round-Robin baseline scheduler
-├── backend/
-│   ├── init.py
-│   └── server.py             # Flask + Socket.IO server
-├── frontend/
-│   └── index.html            # Live dashboard
-├── models/
-│   └── steward_ppo.zip       # Saved trained model (generated after training)
-├── assets/
-│   └── reward_curve.png      # Training reward curve (generated after training)
-├── train.py                  # Training script
-├── benchmark.py              # RL vs Round-Robin benchmark
-├── main.py                   # Environment sanity check
-├── requirements.txt
-└── README.md
 
 ---
 
