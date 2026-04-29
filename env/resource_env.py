@@ -13,8 +13,8 @@ class ResourceEnv(gym.Env):
 
         # observation: [cpu_used, ram_used, queue_length, next_process_priority]
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, 0], dtype=np.float32),
-            high=np.array([100, 100, self.max_queue, 3], dtype=np.float32)
+            low=np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([100, 100, self.max_queue, 3, 35, 30, 3, 35, 30, 3, 35, 30], dtype=np.float32)
         )
 
         # actions: 0 = schedule, 1 = defer, 2 = kill
@@ -28,16 +28,13 @@ class ResourceEnv(gym.Env):
         self.max_ticks = 200
 
     def _get_obs(self):
-        if len(self.process_queue) > 0:
-            next_priority = self.process_queue.peek()["priority"]
-        else:
-            next_priority = 0
-        return np.array([
-            self.cpu_used,
-            self.ram_used,
-            len(self.process_queue),
-            next_priority
-        ], dtype=np.float32)
+        obs = [self.cpu_used, self.ram_used, len(self.process_queue)]
+        processes = sorted(list(self.process_queue.queue), key=lambda p: p["priority"], reverse=True)[:3]
+        while len(processes) < 3:
+            processes.append({"priority": 0, "cpu": 0, "ram": 0})
+        for p in processes:
+            obs.extend([p["priority"], p["cpu"], p["ram"]])
+        return np.array(obs, dtype=np.float32)
 
     def step(self, action):
         reward = 0

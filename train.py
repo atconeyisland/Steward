@@ -35,7 +35,7 @@ def train():
     )
 
     print("Training started...")
-    model.learn(total_timesteps=200_000, callback=callback)
+    model.learn(total_timesteps=300_000, callback=callback)
     print("Training complete.")
 
     os.makedirs("models", exist_ok=True)
