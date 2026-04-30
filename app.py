@@ -1,18 +1,24 @@
 from flask import Flask, jsonify
 from flask_socketio import SocketIO
 import time
+import random
+import numpy as np
 
-from simulation import SystemState, ProcessGenerator, simulate_step
+from stable_baselines3 import PPO
+from simulation import SystemState, ProcessGenerator, simulate_step, Process
+
+# 🔥 Load RL model (relative path)
+rl_model = PPO.load("models/steward_ppo.zip")
+
+# Modes: "RL", "RR", "DUMMY"
+MODE = "RL"
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Shared objects
 state = SystemState()
-generator = ProcessGenerator(lam=2)
-
-MODE = "DUMMY"  # later: "RL" or "RR"
-
+generator = ProcessGenerator(lam=1)  # reduced for stability
 
 # ✅ API endpoint
 @app.route("/api/status")
@@ -20,55 +26,82 @@ def get_status():
     return jsonify(state.snapshot())
 
 
-# 🧠 Build observation (VERY IMPORTANT for RL later)
+# 🔥 Stress Test Endpoint
+@app.route("/api/stress-test")
+def stress_test():
+    for _ in range(20):
+        state.process_queue.append(
+            Process(
+                cpu=random.randint(10, 60),
+                ram=random.randint(10, 60),
+                burst_time=random.randint(1, 6)
+            )
+        )
+    return {"status": "stress injected"}
+
+
+# 🔄 Reset Endpoint
+@app.route("/api/reset")
+def reset():
+    global state
+    state = SystemState()
+    return {"status": "reset done"}
+
+
+# 🧠 Observation (MUST match RL training)
 def get_observation(state):
-    return [
+    current = state.process_queue[0] if state.process_queue else None
+
+    obs = [
         state.cpu_used,
         state.ram_used,
         len(state.process_queue),
-        state.completed_count
+        state.completed_count,
+
+        # current process
+        current.cpu if current else 0,
+        current.ram if current else 0,
+        current.burst_time if current else 0,
+
+        # maybe queue stats
+        sum(p.cpu for p in state.process_queue[:3]),
+        sum(p.ram for p in state.process_queue[:3]),
+
+        # padding / extras
+        0, 0, 0
     ]
 
+    return np.array(obs, dtype=np.float32)
 
-# 🎮 Action selector (temporary)
+
+# 🎮 Action selector
 def get_action(obs):
-    if MODE == "DUMMY":
-        return 0  # always schedule
+    if MODE == "RL":
+        action, _ = rl_model.predict(obs, deterministic=True)
+        return int(action)
 
-    # future:
-    # if MODE == "RL":
-    #     return rl_model.predict(obs)[0]
-    # elif MODE == "RR":
-    #     return round_robin_policy()
+    elif MODE == "RR":
+        return 0  # placeholder (you can upgrade later)
 
-    return 0
+    return 0  # DUMMY
 
 
-# 🔁 Background simulation loop
+# 🔁 Main simulation loop (500ms)
 def run_simulation():
     while True:
-        # 🧠 build observation
-        obs = [
-            state.cpu_used,
-            state.ram_used,
-            len(state.process_queue),
-            state.completed_count
-        ]
+        obs = get_observation(state)
+        action = get_action(obs)
 
-        # 🎮 temporary action (Day 1)
-        action = 0  # always schedule
-
-        # 🔁 step simulation
         new_processes, reward, decision = simulate_step(state, generator, action)
 
-        # 🧪 logs
+        # 🧪 Logs
         if new_processes:
             print(f"[NEW] {new_processes}")
 
-        print(f"[DECISION] {decision} | reward={reward}")
+        print(f"[ACTION] {action} | [DECISION] {decision} | reward={reward}")
         print(f"[STATE] {state.snapshot()}")
 
-        # 📡 emit events
+        # 📡 Emit events
         socketio.emit("resource_update", state.snapshot())
 
         socketio.emit("decision_made", {
