@@ -105,9 +105,9 @@ def run_simulation():
         socketio.emit("resource_update", state.snapshot())
 
         socketio.emit("decision_made", {
-            "action": decision,
-            "queue_length": len(state.process_queue)
-        })
+    "action": int(action),   # 🔥 FIX HERE
+    "queue_length": len(state.process_queue)
+})
 
         socketio.emit("reward_update", {
             "reward": reward
