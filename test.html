@@ -3,334 +3,207 @@
 <head>
   <title>RL Scheduler Live</title>
   <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  <style>
     body {
-      font-family: 'Courier New', monospace;
+      font-family: Arial;
       background: #0d0d0d;
-      color: #e0e0e0;
-      padding: 24px;
+      color: #eee;
+      padding: 20px;
     }
 
     h1 {
-      font-size: 20px;
-      margin-bottom: 4px;
-      color: #fff;
+      margin-bottom: 10px;
     }
 
-    .subtitle {
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .conn {
       font-size: 12px;
-      color: #555;
-      margin-bottom: 24px;
+      color: #888;
     }
 
-    /* ── Top summary cards ── */
-    .summary-grid {
+    .connected { color: #00ff88; }
+    .disconnected { color: red; }
+
+    .grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
       margin-bottom: 20px;
     }
 
-    .algo-card {
+    .card {
       background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 10px;
-      padding: 14px;
-      transition: border-color 0.3s;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #333;
     }
 
-    .algo-card.best { border-color: #00ff88; }
+    .best {
+      border-color: #00ff88;
+    }
 
     .algo-name {
-      font-size: 11px;
-      font-weight: bold;
+      font-size: 12px;
+      margin-bottom: 5px;
       color: #888;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .algo-completed {
-      font-size: 28px;
+    .big {
+      font-size: 22px;
       font-weight: bold;
-      color: #fff;
-      line-height: 1;
-    }
-
-    .algo-label {
-      font-size: 10px;
-      color: #444;
-      margin-top: 2px;
-      margin-bottom: 10px;
-    }
-
-    .bar-row { margin-top: 6px; }
-    .bar-label { font-size: 10px; color: #555; margin-bottom: 2px; }
-    .bar-track {
-      height: 4px;
-      background: #222;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.4s ease;
-    }
-
-    .algo-footer {
-      margin-top: 10px;
-      font-size: 10px;
-      color: #555;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    /* ── Main table ── */
-    .table-wrap {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 10px;
-      overflow: hidden;
-      margin-bottom: 20px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
+      margin-top: 10px;
     }
 
-    thead th {
-      background: #111;
-      padding: 10px 14px;
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #222;
       text-align: left;
+    }
+
+    th {
       color: #555;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border-bottom: 1px solid #2a2a2a;
+      font-size: 11px;
     }
-
-    tbody td {
-      padding: 10px 14px;
-      border-bottom: 1px solid #1e1e1e;
-      color: #ccc;
-    }
-
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: #1f1f1f; }
 
     .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 20px;
+      padding: 2px 6px;
+      border-radius: 4px;
       font-size: 10px;
-      font-weight: bold;
     }
 
-    .badge-schedule { background: #0a3320; color: #00cc66; }
-    .badge-defer    { background: #2a1f00; color: #cc8800; }
-    .badge-kill     { background: #2a0000; color: #cc2200; }
-    .badge-idle     { background: #1a1a1a; color: #444; }
-    .badge-none     { background: #1a1a1a; color: #444; }
-
-    .alert-val { color: #ff4444 !important; }
-
-    /* ── Step + controls ── */
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .step-label {
-      font-size: 12px;
-      color: #444;
-    }
-
-    .btn-row { display: flex; gap: 8px; }
+    .schedule { background: #003322; color: #00cc66; }
+    .defer { background: #332200; color: #ffaa00; }
+    .kill { background: #330000; color: #ff4444; }
 
     button {
-      background: #1e1e1e;
-      border: 1px solid #333;
+      background: #222;
       color: #ccc;
-      padding: 7px 16px;
-      border-radius: 6px;
+      border: 1px solid #333;
+      padding: 6px 12px;
       cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      transition: background 0.2s;
+      margin-right: 5px;
     }
 
-    button:hover { background: #2a2a2a; }
-
-    .conn-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
+    button:hover {
       background: #333;
-      margin-right: 6px;
-      transition: background 0.3s;
     }
-    .conn-dot.connected { background: #00cc66; }
   </style>
 </head>
 
 <body>
 
-  <div class="topbar">
-    <div>
-      <h1>⚙️ RL OS Scheduler</h1>
-      <div class="subtitle">
-        <span class="conn-dot" id="connDot"></span>
-        <span id="connLabel">connecting...</span>
-        &nbsp;|&nbsp; <span id="stepLabel">step 0</span>
+<div class="topbar">
+  <div>
+    <h1>⚙️ RL Scheduler</h1>
+    <div class="conn" id="connStatus">connecting...</div>
+  </div>
+
+  <div>
+    <button onclick="stressTest()">🔥 Stress</button>
+    <button onclick="resetSim()">🔄 Reset</button>
+  </div>
+</div>
+
+<div class="grid" id="cards"></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Algo</th>
+      <th>Done</th>
+      <th>Queue</th>
+      <th>Throughput</th>
+      <th>Wait</th>
+      <th>CPU</th>
+      <th>RAM</th>
+      <th>Decision</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+const COLORS = {
+  FCFS: "#378ADD",
+  SJF: "#1D9E75",
+  RR: "#BA7517",
+  Priority: "#D4537E",
+  RL: "#7F77DD"
+};
+
+const socket = io("http://127.0.0.1:5000");
+
+socket.on("connect", () => {
+  document.getElementById("connStatus").innerText = "connected";
+  document.getElementById("connStatus").className = "conn connected";
+});
+
+socket.on("disconnect", () => {
+  document.getElementById("connStatus").innerText = "disconnected";
+  document.getElementById("connStatus").className = "conn disconnected";
+});
+
+socket.on("comparison_update", data => {
+  render(data.algos);
+});
+
+function render(algos) {
+  renderCards(algos);
+  renderTable(algos);
+}
+
+function renderCards(algos) {
+  const best = algos.sort((a, b) => b.completed - a.completed)[0].name;
+
+  document.getElementById("cards").innerHTML =
+    algos.map(a => `
+      <div class="card ${a.name === best ? 'best' : ''}">
+        <div class="algo-name">${a.name}</div>
+        <div class="big">${a.completed}</div>
+        <div>Queue: ${a.queue}</div>
       </div>
-    </div>
-    <div class="btn-row">
-      <button onclick="stressTest()">🔥 Stress Test</button>
-      <button onclick="resetSim()">🔄 Reset</button>
-    </div>
-  </div>
+    `).join("");
+}
 
-  <!-- Summary cards -->
-  <div class="summary-grid" id="summaryGrid">
-    <!-- filled by JS -->
-  </div>
+function renderTable(algos) {
+  document.getElementById("tableBody").innerHTML =
+    algos.map(a => {
+      const dec = a.last_decision || "none";
 
-  <!-- Detail table -->
-  <div class="table-wrap">
-    <table>
-      <thead>
+      return `
         <tr>
-          <th>Algorithm</th>
-          <th>Completed</th>
-          <th>Queue</th>
-          <th>Throughput</th>
-          <th>Avg Wait</th>
-          <th>CPU %</th>
-          <th>RAM %</th>
-          <th>Decision</th>
+          <td>${a.name}</td>
+          <td>${a.completed}</td>
+          <td>${a.queue}</td>
+          <td>${a.throughput}</td>
+          <td>${a.avg_wait}</td>
+          <td>${a.cpu}%</td>
+          <td>${a.ram}%</td>
+          <td><span class="badge ${dec}">${dec}</span></td>
         </tr>
-      </thead>
-      <tbody id="metricsBody">
-        <!-- filled by JS -->
-      </tbody>
-    </table>
-  </div>
+      `;
+    }).join("");
+}
 
-  <script>
-    const COLORS = {
-      FCFS:         "#378ADD",
-      SJF:          "#1D9E75",
-      "Round Robin":"#BA7517",
-      Priority:     "#D4537E",
-      RL:           "#7F77DD",
-    };
+function stressTest() {
+  fetch("http://127.0.0.1:5000/api/stress-test");
+}
 
-    const socket = io("http://localhost:5000");
+function resetSim() {
+  fetch("http://127.0.0.1:5000/api/reset");
+}
+</script>
 
-    socket.on("connect", () => {
-      document.getElementById("connDot").classList.add("connected");
-      document.getElementById("connLabel").innerText = "connected";
-    });
-
-    socket.on("disconnect", () => {
-      document.getElementById("connDot").classList.remove("connected");
-      document.getElementById("connLabel").innerText = "disconnected";
-    });
-
-    socket.on("comparison_update", data => {
-      document.getElementById("stepLabel").innerText = "step " + data.step;
-      renderCards(data.algos);
-      renderTable(data.algos);
-    });
-
-    function renderCards(algos) {
-      const best = algos.reduce((a, b) => a.completed > b.completed ? a : b).name;
-      const grid = document.getElementById("summaryGrid");
-      grid.innerHTML = algos.map(a => {
-        const color = COLORS[a.name] || "#888";
-        const cpuPct = Math.min(a.cpu, 100);
-        const ramPct = Math.min(a.ram, 100);
-        return `
-          <div class="algo-card ${a.name === best ? 'best' : ''}">
-            <div class="algo-name">
-              <span class="dot" style="background:${color}"></span>
-              ${a.name}
-            </div>
-            <div class="algo-completed">${a.completed}</div>
-            <div class="algo-label">completed</div>
-            <div class="bar-row">
-              <div class="bar-label">CPU</div>
-              <div class="bar-track">
-                <div class="bar-fill" style="width:${cpuPct}%;background:${color};opacity:0.85"></div>
-              </div>
-            </div>
-            <div class="bar-row" style="margin-top:5px">
-              <div class="bar-label">RAM</div>
-              <div class="bar-track">
-                <div class="bar-fill" style="width:${ramPct}%;background:${color};opacity:0.5"></div>
-              </div>
-            </div>
-            <div class="algo-footer">
-              <span>Q: ${a.queue}</span>
-              <span>TP: ${a.throughput}</span>
-            </div>
-          </div>`;
-      }).join("");
-    }
-
-    function renderTable(algos) {
-      const body = document.getElementById("metricsBody");
-      body.innerHTML = algos.map(a => {
-        const color = COLORS[a.name] || "#888";
-        const dec = a.last_decision || "none";
-        const badgeClass = `badge-${dec}`;
-        const cpuAlert = a.cpu > 80 ? 'alert-val' : '';
-        const ramAlert = a.ram > 80 ? 'alert-val' : '';
-        return `
-          <tr>
-            <td>
-              <span style="display:inline-flex;align-items:center;gap:6px">
-                <span class="dot" style="background:${color}"></span>
-                ${a.name}
-              </span>
-            </td>
-            <td>${a.completed}</td>
-            <td>${a.queue}</td>
-            <td>${a.throughput}</td>
-            <td>${a.avg_wait}</td>
-            <td class="${cpuAlert}">${a.cpu}%</td>
-            <td class="${ramAlert}">${a.ram}%</td>
-            <td><span class="badge ${badgeClass}">${dec}</span></td>
-          </tr>`;
-      }).join("");
-    }
-
-    function stressTest() {
-      fetch("http://localhost:5000/api/stress-test");
-    }
-
-    function resetSim() {
-      fetch("http://localhost:5000/api/reset");
-    }
-  </script>
 </body>
 </html>
