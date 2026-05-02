@@ -6,12 +6,11 @@ import random
 # PROCESS CLASS
 # =========================
 class Process:
-    def __init__(self, cpu, ram, burst_time):
+    def __init__(self, cpu, ram, burst_time, priority=None):
         self.cpu = cpu
         self.ram = ram
         self.burst_time = burst_time
-
-        # metrics
+        self.priority = priority if priority is not None else random.randint(0, 3)
         self.wait_time = 0
         self.start_time = None
         self.finish_time = None

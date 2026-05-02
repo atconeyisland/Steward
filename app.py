@@ -18,7 +18,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Shared objects
 state = SystemState()
-generator = ProcessGenerator(lam=1)  # reduced for stability
+generator = ProcessGenerator(lam=0.3)  # reduced for stability
 
 # ✅ API endpoint
 @app.route("/api/status")
@@ -50,27 +50,14 @@ def reset():
 
 # 🧠 Observation (MUST match RL training)
 def get_observation(state):
-    current = state.process_queue[0] if state.process_queue else None
-
-    obs = [
-        state.cpu_used,
-        state.ram_used,
-        len(state.process_queue),
-        state.completed_count,
-
-        # current process
-        current.cpu if current else 0,
-        current.ram if current else 0,
-        current.burst_time if current else 0,
-
-        # maybe queue stats
-        sum(p.cpu for p in state.process_queue[:3]),
-        sum(p.ram for p in state.process_queue[:3]),
-
-        # padding / extras
-        0, 0, 0
-    ]
-
+    processes = sorted(state.process_queue, key=lambda p: getattr(p, 'priority', 0), reverse=True)[:3]
+    while len(processes) < 3:
+        processes.append(Process(cpu=0, ram=0, burst_time=0))
+    
+    obs = [state.cpu_used, state.ram_used, len(state.process_queue)]
+    for p in processes:
+        obs.extend([getattr(p, 'priority', 0), p.cpu, p.ram])
+    
     return np.array(obs, dtype=np.float32)
 
 
@@ -92,7 +79,7 @@ def run_simulation():
         obs = get_observation(state)
         action = get_action(obs)
 
-        new_processes, reward, decision = simulate_step(state, generator, action)
+        new_processes, reward, decision, finished_process = simulate_step(state, generator, action)
 
         # 🧪 Logs
         if new_processes:
