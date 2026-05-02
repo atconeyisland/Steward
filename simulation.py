@@ -1,6 +1,5 @@
 import numpy as np
 import random
-from collections import deque
 
 
 # =========================
@@ -19,7 +18,8 @@ class Process:
         self.finish_time = None
 
     def __repr__(self):
-        return f"P(cpu={self.cpu}, ram={self.ram}, burst={self.burst_time}, remaining={self.remaining_burst}, priority={self.priority})"
+        return (f"P(cpu={self.cpu}, ram={self.ram}, burst={self.burst_time}, "
+                f"remaining={self.remaining_burst}, priority={self.priority})")
 
 
 # =========================
@@ -87,6 +87,69 @@ def compute_metrics(state):
 
 
 # =========================
+# SIMULATE STEP  (used by app.py)
+# =========================
+def simulate_step(state, generator=None, action=0, current_time=0):
+    """
+    action 0 = schedule
+    action 1 = defer
+    action 2 = kill
+
+    Returns: new_processes, reward, decision, finished_process
+    """
+    finished_process = None
+    new_processes = []
+
+    if generator is not None:
+        new_processes = generator.generate(current_time)
+        state.process_queue.extend(new_processes)
+
+    for p in state.process_queue:
+        p.wait_time += 1
+
+    reward = 0
+    decision = "none"
+
+    if state.process_queue:
+        p = state.process_queue[0]
+
+        if p.start_time is None:
+            p.start_time = current_time
+
+        if action == 0:  # schedule
+            decision = "schedule"
+            state.cpu_used = p.cpu
+            state.ram_used = p.ram
+            p.remaining_burst -= 1
+
+            if p.remaining_burst <= 0:
+                p.finish_time = current_time
+                finished_process = p
+                state.process_queue.pop(0)
+                state.completed.append(p)   # fixed: was completed_count += 1
+                reward += 1
+
+        elif action == 1:  # defer
+            decision = "defer"
+            state.process_queue.append(state.process_queue.pop(0))
+            reward -= 0.1
+
+        elif action == 2:  # kill
+            decision = "kill"
+            finished_process = state.process_queue.pop(0)
+            reward -= 0.5
+
+    else:
+        state.cpu_used = 0
+        state.ram_used = 0
+
+    if state.cpu_used > 100 or state.ram_used > 100:
+        reward -= 1
+
+    return new_processes, reward, decision, finished_process
+
+
+# =========================
 # BASE SCHEDULER
 # =========================
 class Scheduler:
@@ -97,7 +160,6 @@ class Scheduler:
         self.generator = ProcessGenerator()
 
     def select_process(self):
-        """Override in subclasses. Returns index of chosen process."""
         raise NotImplementedError
 
     def _increment_wait(self):
@@ -114,11 +176,8 @@ class Scheduler:
         self.state.time += 1
         t = self.state.time
 
-        # Arrive new processes
         arrivals = self.generator.generate(t)
         self.state.process_queue.extend(arrivals)
-
-        # Age all waiting processes
         self._increment_wait()
 
         queue = self.state.process_queue
@@ -158,11 +217,11 @@ class FCFSScheduler(Scheduler):
     name = "FCFS"
 
     def select_process(self):
-        return 0  # always pick the front
+        return 0
 
 
 # =========================
-# SJF  (non-preemptive shortest job first)
+# SJF
 # =========================
 class SJFScheduler(Scheduler):
     name = "SJF"
@@ -185,12 +244,6 @@ class RoundRobinScheduler(Scheduler):
         self._rr_remain = 0
 
     def select_process(self):
-        queue = self.state.process_queue
-        if self._rr_remain <= 0:
-            self._rr_index = self._rr_index % len(queue)
-            self._rr_remain = self.quantum
-        else:
-            self._rr_index = min(self._rr_index, len(queue) - 1)
         return self._rr_index
 
     def step(self):
@@ -234,33 +287,27 @@ class RoundRobinScheduler(Scheduler):
 
 
 # =========================
-# PRIORITY  (higher cpu+ram = higher priority)
+# PRIORITY
 # =========================
 class PriorityScheduler(Scheduler):
     name = "Priority"
 
     def select_process(self):
         queue = self.state.process_queue
-        return max(range(len(queue)), key=lambda i: queue[i].cpu + queue[i].ram)
+        return max(range(len(queue)), key=lambda i: queue[i].priority)
 
 
 # =========================
-# RL-based heuristic
+# RL HEURISTIC
 # =========================
 class RLScheduler(Scheduler):
-    """
-    Simple rule-based RL approximation:
-      - Kill if both cpu and ram are very high AND queue is long
-      - Defer if combined load exceeds threshold
-      - Otherwise schedule
-    """
     name = "RL"
     LOAD_THRESHOLD = 120
     KILL_THRESHOLD = 70
     KILL_QUEUE_MIN = 3
 
     def select_process(self):
-        return 0  # action logic handled in step()
+        return 0
 
     def step(self):
         self.state.time += 1
@@ -280,29 +327,24 @@ class RLScheduler(Scheduler):
         p = queue[0]
         load = p.cpu + p.ram + len(queue) * 2
 
-        if (p.cpu > self.KILL_THRESHOLD and p.ram > self.KILL_THRESHOLD
+        if (p.cpu > self.KILL_THRESHOLD
+                and p.ram > self.KILL_THRESHOLD
                 and len(queue) >= self.KILL_QUEUE_MIN):
-            # Kill the process
             self._complete(p)
             queue.pop(0)
             self.state.last_decision = "kill"
 
         elif load > self.LOAD_THRESHOLD and len(queue) > 1:
-            # Defer to back of queue
             queue.append(queue.pop(0))
             self.state.last_decision = "defer"
 
         else:
-            # Schedule normally
             if p.start_time is None:
                 p.start_time = t
-
             self.state.cpu_used = p.cpu
             self.state.ram_used = p.ram
             self.state.last_decision = "schedule"
-
             p.remaining_burst -= 1
-
             if p.remaining_burst <= 0:
                 self._complete(p)
                 queue.pop(0)
