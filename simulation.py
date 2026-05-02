@@ -7,27 +7,19 @@ from collections import deque
 # PROCESS CLASS
 # =========================
 class Process:
-<<<<<<< HEAD
-    def __init__(self, cpu, ram, burst_time, priority=None):
-        self.cpu = cpu
-        self.ram = ram
-        self.burst_time = burst_time
-        self.priority = priority if priority is not None else random.randint(0, 3)
-=======
-    def __init__(self, cpu, ram, burst_time, arrival_time=0):
+    def __init__(self, cpu, ram, burst_time, priority=None, arrival_time=0):
         self.cpu = cpu
         self.ram = ram
         self.burst_time = burst_time
         self.remaining_burst = burst_time
         self.arrival_time = arrival_time
-
->>>>>>> 8258c18 (Day 2 complete: RL integration, socket events, stress/reset, frontend test)
+        self.priority = priority if priority is not None else random.randint(0, 3)
         self.wait_time = 0
         self.start_time = None
         self.finish_time = None
 
     def __repr__(self):
-        return f"P(cpu={self.cpu}, ram={self.ram}, burst={self.burst_time}, remaining={self.remaining_burst})"
+        return f"P(cpu={self.cpu}, ram={self.ram}, burst={self.burst_time}, remaining={self.remaining_burst}, priority={self.priority})"
 
 
 # =========================
