@@ -175,6 +175,13 @@ def run_simulation():
                 state, gen, action, current_time=state.time
             )
 
+            socketio.emit("resource_update", {
+                "cpu_used": state.cpu_used,
+                "ram_used": state.ram_used,
+                "queue_length": len(state.process_queue)
+            })
+
+
             # store completed processes
             if not hasattr(state, "_completed_list"):
                 state._completed_list = []
@@ -184,10 +191,18 @@ def run_simulation():
 
             metrics = compute_metrics(name, state)
             all_metrics.append(metrics)
+            
 
             if name == "RL":
                 print(f"[RL] action={action} decision={decision} reward={reward:.2f}")
-
+                socketio.emit("decision_made", {
+                "pid": step,
+                "action": action,
+                "decision": decision
+            })
+                socketio.emit("reward_update", {
+                    "reward": reward
+                })
         # 🔥 DEBUG EMIT
         print(f"[EMIT] comparison_update | step={step} | algos={len(all_metrics)}")
 
@@ -195,6 +210,7 @@ def run_simulation():
             "step": step,
             "algos": all_metrics
         })
+        
 
         # log summary
         print(
