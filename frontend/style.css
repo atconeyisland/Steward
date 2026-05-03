@@ -88,7 +88,7 @@
     .decision-log { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
     .decision-log::-webkit-scrollbar { width: 4px; }
     .decision-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .decision-entry { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid transparent; animation: fadeIn 0.25s ease; }
+    .decision-entry { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.02); border: none; animation: fadeIn 0.25s ease; }
     .decision-entry:hover { border-color: var(--border); }
     @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
     .d-time   { color: var(--muted); flex-shrink: 0; }
@@ -154,3 +154,11 @@
     .log-msg.success { color: var(--accent); }
     .log-msg.warn    { color: var(--accent3); }
     .log-msg.info    { color: var(--accent2); }
+
+    .decision-entry {
+  border: none !important;
+}
+
+.decision-log {
+  border: none !important;
+}
