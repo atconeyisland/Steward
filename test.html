@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RL Scheduler Live</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0d0d0d;
+      color: #eee;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .conn {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .connected { color: #00ff88; }
+    .disconnected { color: red; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+
+    .best {
+      border-color: #00ff88;
+    }
+
+    .algo-name {
+      font-size: 12px;
+      margin-bottom: 5px;
+      color: #888;
+    }
+
+    .big {
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #222;
+      text-align: left;
+    }
+
+    th {
+      color: #555;
+      font-size: 11px;
+    }
+
+    .badge {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .schedule { background: #003322; color: #00cc66; }
+    .defer { background: #332200; color: #ffaa00; }
+    .kill { background: #330000; color: #ff4444; }
+
+    button {
+      background: #222;
+      color: #ccc;
+      border: 1px solid #333;
+      padding: 6px 12px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    button:hover {
+      background: #333;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>⚙️ RL Scheduler</h1>
+    <div class="conn" id="connStatus">connecting...</div>
+  </div>
+
+  <div>
+    <button onclick="stressTest()">🔥 Stress</button>
+    <button onclick="resetSim()">🔄 Reset</button>
+  </div>
+</div>
+
+<div class="grid" id="cards"></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Algo</th>
+      <th>Done</th>
+      <th>Queue</th>
+      <th>Throughput</th>
+      <th>Wait</th>
+      <th>CPU</th>
+      <th>RAM</th>
+      <th>Decision</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+const COLORS = {
+  FCFS: "#378ADD",
+  SJF: "#1D9E75",
+  RR: "#BA7517",
+  Priority: "#D4537E",
+  RL: "#7F77DD"
+};
+
+const socket = io("http://127.0.0.1:5000");
+
+socket.on("connect", () => {
+  document.getElementById("connStatus").innerText = "connected";
+  document.getElementById("connStatus").className = "conn connected";
+});
+
+socket.on("disconnect", () => {
+  document.getElementById("connStatus").innerText = "disconnected";
+  document.getElementById("connStatus").className = "conn disconnected";
+});
+
+socket.on("comparison_update", data => {
+  render(data.algos);
+});
+
+function render(algos) {
+  renderCards(algos);
+  renderTable(algos);
+}
+
+function renderCards(algos) {
+  const best = algos.sort((a, b) => b.completed - a.completed)[0].name;
+
+  document.getElementById("cards").innerHTML =
+    algos.map(a => `
+      <div class="card ${a.name === best ? 'best' : ''}">
+        <div class="algo-name">${a.name}</div>
+        <div class="big">${a.completed}</div>
+        <div>Queue: ${a.queue}</div>
+      </div>
+    `).join("");
+}
+
+function renderTable(algos) {
+  document.getElementById("tableBody").innerHTML =
+    algos.map(a => {
+      const dec = a.last_decision || "none";
+
+      return `
+        <tr>
+          <td>${a.name}</td>
+          <td>${a.completed}</td>
+          <td>${a.queue}</td>
+          <td>${a.throughput}</td>
+          <td>${a.avg_wait}</td>
+          <td>${a.cpu}%</td>
+          <td>${a.ram}%</td>
+          <td><span class="badge ${dec}">${dec}</span></td>
+        </tr>
+      `;
+    }).join("");
+}
+
+function stressTest() {
+  fetch("http://127.0.0.1:5000/api/stress-test");
+}
+
+function resetSim() {
+  fetch("http://127.0.0.1:5000/api/reset");
+}
+</script>
+
+</body>
+</html>
