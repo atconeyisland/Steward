@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Steward — OS Resource Manager</title>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- Socket.IO CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="6" height="6" rx="1.5" fill="#0d0f14"/>
+          <rect x="10" y="2" width="6" height="6" rx="1.5" fill="#0d0f14"/>
+          <rect x="2" y="10" width="6" height="6" rx="1.5" fill="#0d0f14"/>
+          <rect x="10" y="10" width="6" height="6" rx="1.5" fill="#0d0f14" opacity="0.4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">STEWARD</div>
+        <div class="logo-sub">RL-POWERED OS RESOURCE MANAGER</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="stress-btn" id="stressBtn" onclick="triggerStressTest()">⚡ STRESS TEST</button>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span id="conn-status">CONNECTING...</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Metric cards -->
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">CPU Usage</div>
+        <div class="metric-value cpu" id="cpu-val">0%</div>
+        <div class="metric-bar"><div class="metric-bar-fill cpu" id="cpu-bar" style="width:0%"></div></div>
+        <div class="metric-delta" id="cpu-delta">— waiting for data</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">RAM Usage</div>
+        <div class="metric-value ram" id="ram-val">0%</div>
+        <div class="metric-bar"><div class="metric-bar-fill ram" id="ram-bar" style="width:0%"></div></div>
+        <div class="metric-delta" id="ram-delta">— waiting for data</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Queue Length</div>
+        <div class="metric-value queue" id="queue-val">0</div>
+        <div class="metric-bar"><div class="metric-bar-fill queue" id="queue-bar" style="width:0%"></div></div>
+        <div class="metric-delta" id="queue-delta">— waiting for data</div>
+      </div>
+    </div>
+
+    <!-- Live charts -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">CPU Usage — Real Time</span>
+          <span class="chart-live-badge">LIVE</span>
+        </div>
+        <div class="chart-wrapper"><canvas id="cpuChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">RAM Usage — Real Time</span>
+          <span class="chart-live-badge">LIVE</span>
+        </div>
+        <div class="chart-wrapper"><canvas id="ramChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Decision log + Comparison -->
+    <div class="bottom-grid">
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">Decision Log</span>
+          <span class="panel-badge badge-green" id="decision-count">0 decisions</span>
+        </div>
+        <div class="decision-log" id="decisionLog"></div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">RL vs Round-Robin vs SJF vs FCFS vs Priority</span>
+          <span class="panel-badge badge-green">LIVE COMPARISON</span>
+        </div>
+        <div class="compare-grid">
+            <div class="compare-col rl-col">
+                <div class="compare-name rl">RL Agent</div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Throughput</div>
+                <div class="compare-stat-val rl" id="rl-throughput">—</div>
+                </div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Avg Wait Time</div>
+                <div class="compare-stat-val rl" id="rl-wait">—</div>
+                </div>
+                <div class="compare-bar-row">
+                <div class="compare-bar-label">Throughput</div>
+                <div class="compare-bar"><div class="compare-bar-fill rl" id="rl-bar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="compare-col rr-col">
+                <div class="compare-name rr">Round-Robin</div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Throughput</div>
+                <div class="compare-stat-val rr" id="rr-throughput">—</div>
+                </div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Avg Wait Time</div>
+                <div class="compare-stat-val rr" id="rr-wait">—</div>
+                </div>
+                <div class="compare-bar-row">
+                <div class="compare-bar-label">Throughput</div>
+                <div class="compare-bar"><div class="compare-bar-fill rr" id="rr-bar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="compare-col sjf-col">
+                <div class="compare-name sjf">SJF</div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Throughput</div>
+                <div class="compare-stat-val sjf" id="sjf-throughput">—</div>
+                </div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Avg Wait Time</div>
+                <div class="compare-stat-val sjf" id="sjf-wait">—</div>
+                </div>
+                <div class="compare-bar-row">
+                <div class="compare-bar-label">Throughput</div>
+                <div class="compare-bar"><div class="compare-bar-fill sjf" id="sjf-bar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="compare-col fsfs-col">
+                <div class="compare-name fsfs">FCFS</div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Throughput</div>
+                <div class="compare-stat-val fsfs" id="fsfs-throughput">—</div>
+                </div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Avg Wait Time</div>
+                <div class="compare-stat-val fsfs" id="fsfs-wait">—</div>
+                </div>
+                <div class="compare-bar-row">
+                <div class="compare-bar-label">Throughput</div>
+                <div class="compare-bar"><div class="compare-bar-fill fsfs" id="fsfs-bar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="compare-col priority-col">
+                <div class="compare-name priority">Priority</div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Throughput</div>
+                <div class="compare-stat-val priority" id="priority-throughput">—</div>
+                </div>
+                <div class="compare-stat">
+                <div class="compare-stat-label">Avg Wait Time</div>
+                <div class="compare-stat-val priority" id="priority-wait">—</div>
+                </div>
+                <div class="compare-bar-row">
+                <div class="compare-bar-label">Throughput</div>
+                <div class="compare-bar"><div class="compare-bar-fill priority" id="priority-bar" style="width:0%"></div></div>
+                </div>
+            </div>
+            </div>
+      </div>
+
+    </div>
+
+    <!-- Reward Replay -->
+    <div class="reward-card">
+      <div class="panel-header">
+        <span class="panel-title">Reward Replay — Training Curve</span>
+        <span class="panel-badge badge-green">FROM P1</span>
+      </div>
+      <div class="reward-wrapper">
+        <img id="rewardImg" src="" alt="Training curve" onerror="this.style.display='none';document.getElementById('rewardPlaceholder').style.display='flex'" />
+        <div class="reward-placeholder" id="rewardPlaceholder">
+          <div class="reward-placeholder-icon">📈</div>
+          <div>Waiting for P1's training_curve.png</div>
+          <div style="color:#3a4155;font-size:0.65rem">Place image at: assets/training_curve.png</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="log-card">
+      <div class="log-header">
+        <span class="log-title">Socket.IO Event Log</span>
+        <button class="log-clear" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="log-body" id="log"></div>
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
